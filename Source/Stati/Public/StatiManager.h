@@ -1,10 +1,14 @@
 #pragma once
 
+#include "StatiState.h"
+#include "StatiHandle.h"
 #include "StatiManager.generated.h"
 
-struct FStatiStateHandle;
+class UStatiSystem;
+struct FStatiHandle;
 struct FStatiState;
-class UStatiSubstate;
+
+// ------------------------------------------------------------------------------------------------
 
 UENUM(BlueprintType)
 enum class EStatiManagerStatePriority : uint8
@@ -13,6 +17,8 @@ enum class EStatiManagerStatePriority : uint8
 	PreferExisting,
 };
 
+// ------------------------------------------------------------------------------------------------
+
 USTRUCT()
 struct FStatiHandleStateMap
 {
@@ -20,22 +26,30 @@ struct FStatiHandleStateMap
 	
 private:
 	UPROPERTY(Transient)
-	TMap<FStatiStateHandle, FStatiState> States;
+	TMap<FStatiHandle, FStatiState> States;
 
 public:
-	FSimpleDelegate OnStatesChanged;
+	TDelegate<void(FStatiHandle, const FStatiState&)> OnStateAdded;
+	
+	TDelegate<void(FStatiHandle)> OnStateRemoved;
 	
 public:
-	void Add(FStatiStateHandle Handle, FStatiState State);
+	FStatiState& Add(FStatiHandle Handle, FStatiState State);
+
+	int32 Remove(FStatiHandle Handle);
+
+	FStatiState* Find(FStatiHandle Handle);
 };
 
+// ------------------------------------------------------------------------------------------------
+#pragma region Tick Function
 USTRUCT()
 struct FStatiManagerTickFunction : public FTickFunction
 {
 	GENERATED_BODY()
 
 public:
-	class TWeakObjectPtr<UStatiManager> Target;
+	TWeakObjectPtr<class UStatiManager> Target;
 
 	STATI_API void ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 
@@ -49,6 +63,8 @@ struct TStructOpsTypeTraits<FStatiManagerTickFunction> : public TStructOpsTypeTr
 {
 	enum { WithCopy = false };
 };
+#pragma endregion
+// ------------------------------------------------------------------------------------------------
 
 UCLASS()
 class STATI_API UStatiManager : public UWorldSubsystem
@@ -72,24 +88,30 @@ private:
 
 protected:
 	UPROPERTY(Transient)
-	TMap<FName, FStatiStateHandle> NamedStateHandles;
+	TMap<FName, FStatiHandle> NamedStateHandles;
 	
 	UPROPERTY(Transient)
 	FStatiHandleStateMap States;
 
 	UPROPERTY(Transient)
-	TMap<TSubclassOf<UStatiSubstate>, UStatiSubstate*> ActiveSubstates;
+	FStatiHandle ActiveHandle;
 
 	UPROPERTY(Transient)
-	bool bStatesDirty = false;
+	FStatiState ActiveState;
 	
-	// -------------------------------------------------------------------
-	// State Getters/Setters
-	// -------------------------------------------------------------------
+	UPROPERTY(Transient)
+	TMap<TSubclassOf<UStatiSystem>, UStatiSystem*> Systems;
 
-	// -------------------------------------------------------------------
+	UPROPERTY(Transient)
+	bool bStateSelectionDirty = false;
+	
+	// ------------------------------------------
+	// State Getters/Setters
+	// ------------------------------------------
+
+	// ------------------------------------------
 	// Delegates/Events
-	// -------------------------------------------------------------------
+	// ------------------------------------------
 
 	// ============================================================================================
 	// METHODS
@@ -97,31 +119,44 @@ protected:
 
 public:
 	void Initialize(FSubsystemCollectionBase& Collection) override;
+
+protected:
+	void SetupDefaultStates();
 	
+	void SpawnSystemInstances();
+
+public:
 	UFUNCTION(BlueprintCallable)
 	bool HasNamedStateHandle(FName HandleName);
 	
 	UFUNCTION(BlueprintCallable)
-	FStatiStateHandle PushState(UPARAM(ref) const FStatiState& NewState, EStatiManagerStatePriority Priority = EStatiManagerStatePriority::PreferNewest, bool bOverrideExistingNamedHandles = true);
+	FStatiHandle PushState(UPARAM(ref) const FStatiState& NewState, EStatiManagerStatePriority Priority = EStatiManagerStatePriority::PreferNewest);
 
 	UFUNCTION(BlueprintCallable)
-	bool PopState(UPARAM(ref) const FStatiStateHandle& StateHandle);
+	bool PopState(UPARAM(ref) const FStatiHandle& StateHandle);
 
+protected:
+	void OnStateAdded(FStatiHandle NewHandle, const FStatiState& NewState);
+	
+	void OnStateRemoved(FStatiHandle RemovedHandle);
+	
+	void SetActive(FStatiHandle NewHandle, const FStatiState& NewState);
+	
 public:
 	void Tick(float DeltaTime);
 
 protected:
-	void OnStatesChanged();
-
 	void UpdateActiveStates(float DeltaTime);
+
+	void TickSystems(float DeltaTime);
 	
 	// ============================================================================================
 	// EDITOR STATE
 	// ============================================================================================
 
-	// -------------------------------------------------------------------
+	// ------------------------------------------
 	// Editor State Getters/Setters
-	// -------------------------------------------------------------------
+	// ------------------------------------------
 
 	// ============================================================================================
 	// EDITOR METHODS

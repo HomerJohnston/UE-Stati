@@ -1,10 +1,10 @@
 #pragma once
 
-#include "StatiStateHandle.generated.h"
+#include "StatiHandle.generated.h"
 
 /** Unique handle that can be used to distinguish timers that have identical delegates. */
 USTRUCT(BlueprintType)
-struct STATI_API FStatiStateHandle
+struct STATI_API FStatiHandle
 {
 	GENERATED_BODY()
 
@@ -15,9 +15,9 @@ struct STATI_API FStatiStateHandle
 	// ============================================================================================
 
 public:
-	FStatiStateHandle();
+	FStatiHandle();
 
-	~FStatiStateHandle();
+	~FStatiHandle();
 
 	// ============================================================================================
 	// STATE
@@ -44,13 +44,13 @@ public:
 	/** Explicitly clear handle */
 	void Invalidate();
 
-	bool operator==(const FStatiStateHandle& Other) const;
+	bool operator==(const FStatiHandle& Other) const;
 
-	bool operator!=(const FStatiStateHandle& Other) const;
+	bool operator!=(const FStatiHandle& Other) const;
 	
 	FName GetName() const;
 
-	static FStatiStateHandle GenerateHandle(FName Name = NAME_None);
+	static FStatiHandle GenerateHandle(FName Name = NAME_None);
 
 private:
 	static const uint32 IndexBits        = 24;
@@ -66,7 +66,7 @@ private:
 	uint64 GetSerialNumber() const;
 
 private:
-	friend uint32 GetTypeHash(const FStatiStateHandle& InHandle);
+	friend uint32 GetTypeHash(const FStatiHandle& InHandle);
 
 	// ============================================================================================
 	// EDITOR
